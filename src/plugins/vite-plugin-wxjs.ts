@@ -1,11 +1,10 @@
-import type { OutputOptions } from 'rollup';
 import type { Plugin, UserConfig } from 'vite';
 
-import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { globSync } from 'tinyglobby';
-import { mergeConfig, normalizePath } from 'vite';
+import { normalizePath } from 'vite';
 
 const resolvedBy = 'vite-plugin-wechat-mp-wxjs';
 const WXJS_PREFIX = 'wxjs-';
@@ -33,53 +32,58 @@ export interface WxJsPluginOptions {
   rootDir?: string;
 }
 
+const md5_8 = (input: string) => crypto.createHash('md5').update(input).digest('hex').slice(0, 8);
+
 export default function wxJsPlugin(options: WxJsPluginOptions = {}): Plugin {
   const rootDir = options.rootDir ?? 'miniprogram';
   const outputDir = options.outputDir ?? 'miniprogram';
-  const extensions = (options.isTsProject ?? true) ? 'ts' : 'js';
+  const isTs = options.isTsProject ?? true;
+  const ext = isTs ? 'ts' : 'js';
 
   return {
     config(config: UserConfig) {
-      const files = globSync(`${rootDir}/**/*.${extensions}`);
+      const files = globSync(`${rootDir}/**/*.${ext}`);
 
-      const input = files.reduce(
-        (acc, file) => {
-          const relative = path.relative(rootDir, file).replace(extensions === 'ts' ? /\.ts$/ : /\.js$/, '');
+      const input: Record<string, string> = {};
+      for (const file of files) {
+        const relativeNoExt = path.relative(rootDir, file).replace(new RegExp(`\\.${ext}$`), '');
 
-          const hash = crypto.createHash('md5').update(file).digest('hex').slice(0, 8);
-          const key = `${WXJS_PREFIX}${relative}-${hash}`;
+        const key = `${WXJS_PREFIX}${relativeNoExt}-${md5_8(relativeNoExt)}`;
+        input[key] = path.resolve(file);
+      }
 
-          acc[key] = path.resolve(file);
-          return acc;
-        },
-        {} as Record<string, string>,
-      );
-
-      const userOutput = config?.build?.rollupOptions?.output as OutputOptions;
+      const userOutput = config?.build?.rolldownOptions?.output as any;
       const assetsDir = config?.build?.assetsDir ?? `${outputDir}/assets`;
-      const target = config?.build?.target ?? ['es2015', 'chrome87', 'edge88', 'firefox78', 'safari14'];
+      const target = config?.build?.target ?? [
+        'es2015',
+        'chrome87',
+        'edge88',
+        'firefox78',
+        'safari14',
+      ];
 
       const pluginConfig: UserConfig = {
         build: {
           assetsDir,
-          rollupOptions: {
+          rolldownOptions: {
             input,
             output: {
               entryFileNames: (chunkInfo) => {
                 const name = chunkInfo.name;
+
                 if (name.startsWith(WXJS_PREFIX)) {
-                  const relative = name.substring(WXJS_PREFIX.length).replace(/-\w{8}$/, '.js');
+                  const relative = name.slice(WXJS_PREFIX.length).replace(/-\w{8}$/, '.js');
                   return normalizePath(path.join(outputDir, relative));
                 }
 
                 const entryFileNames = userOutput?.entryFileNames;
                 if (typeof entryFileNames === 'function') {
                   return entryFileNames(chunkInfo);
-                } else if (typeof entryFileNames === 'string') {
-                  return entryFileNames;
-                } else {
-                  return '[name].js';
                 }
+                if (typeof entryFileNames === 'string') {
+                  return entryFileNames;
+                }
+                return '[name].js';
               },
               format: userOutput?.format ?? 'cjs',
             },
@@ -88,43 +92,32 @@ export default function wxJsPlugin(options: WxJsPluginOptions = {}): Plugin {
         },
       };
 
-      return mergeConfig(config, pluginConfig);
+      return pluginConfig;
     },
     name: resolvedBy,
     transform(code, id) {
-      if (!id.endsWith(`.${extensions}`)) {
+      if (!id.endsWith(`.${ext}`)) {
         return null;
       }
 
-      const ext = path.extname(id);
-      const fileNameWithoutExt = path.basename(id, ext);
-      const dirPath = path.dirname(id);
+      const extname = path.extname(id);
+      const base = path.basename(id, extname);
+      const dir = path.dirname(id);
 
-      const wxmlFile = `${fileNameWithoutExt}.wxml`;
-      const wxssFile = `${fileNameWithoutExt}.wxss`;
-      const jsonFile = `${fileNameWithoutExt}.json`;
-      const imports = [];
+      const sidecars = [`${base}.wxml`, `${base}.wxss`, `${base}.json`];
+      const imports: string[] = [];
 
-      if (fs.existsSync(path.join(dirPath, wxmlFile))) {
-        imports.push(`import './${wxmlFile}?raw';`);
-      }
-
-      if (fs.existsSync(path.join(dirPath, wxssFile))) {
-        imports.push(`import './${wxssFile}?raw';`);
-      }
-
-      if (fs.existsSync(path.join(dirPath, jsonFile))) {
-        imports.push(`import './${jsonFile}?raw';`);
+      for (const file of sidecars) {
+        if (fs.existsSync(path.join(dir, file))) {
+          imports.push(`import './${file}?raw';`);
+        }
       }
 
       if (imports.length === 0) {
         return null;
       }
 
-      return {
-        code: `${imports.join('\n')}\n${code}`,
-        id,
-      };
+      return { code: `${imports.join('\n')}\n${code}`, map: null };
     },
   };
 }

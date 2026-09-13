@@ -1,0 +1,67 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "eslint",
+    "typescript",
+    "unicorn",
+    "oxc",
+    "react",
+    "react-perf",
+    "nextjs",
+    "import",
+    "jsdoc",
+    "jsx-a11y",
+    "node",
+    "promise",
+    "jest",
+    "vitest",
+    "vue"
+  ],
+  "jsPlugins": [
+    {
+      "name": "perf",
+      "specifier": "eslint-plugin-perfectionist"
+    }
+  ],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "@typescript-eslint/consistent-type-imports": "error",
+    "curly": "error",
+    "perf/sort-array-includes": "error",
+    "perf/sort-arrays": "error",
+    "perf/sort-classes": "error",
+    "perf/sort-decorators": "error",
+    "perf/sort-enums": "error",
+    "perf/sort-export-attributes": "error",
+    "perf/sort-exports": "error",
+    "perf/sort-heritage-clauses": "error",
+    "perf/sort-import-attributes": "error",
+    "perf/sort-imports": "error",
+    "perf/sort-interfaces": "error",
+    "perf/sort-intersection-types": "error",
+    "perf/sort-jsx-props": "error",
+    "perf/sort-maps": "error",
+    "perf/sort-modules": "error",
+    "perf/sort-named-exports": "error",
+    "perf/sort-named-imports": "error",
+    "perf/sort-object-types": "error",
+    "perf/sort-objects": "error",
+    "perf/sort-sets": "error",
+    "perf/sort-switch-case": "error",
+    "perf/sort-union-types": "error",
+    "perf/sort-variable-declarations": "error"
+  },
+  "env": {
+    "builtin": true
+  },
+  "settings": {
+    "jsdoc": {
+      "tagNamePreference": {
+        "typeParam": "typeParam"
+      }
+    }
+  },
+  "ignorePatterns": ["examples"]
+}

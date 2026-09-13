@@ -6,7 +6,7 @@
 
 请确保你已安装 [vite 7](https://vite.dev/guide/#manual-installation)
 
-如果还没有安装，请执行：```npm install -D vite```
+如果还没有安装，请执行：`npm install -D vite`
 
 ```bash
 npm install -D vite-plugin-wechat-mp
@@ -93,6 +93,7 @@ dist
   - 返回压缩后的内容，可以是同步或异步的 `string` 或 `Uint8Array`
 
 配置示例：
+
 ```ts
 import { minify } from 'html-minifier-terser';
 
@@ -111,7 +112,7 @@ compress: (source) => {
     sortAttributes: true,
     sortClassName: true,
   });
-}
+};
 ```
 
 #### `debug?: boolean`
@@ -135,8 +136,9 @@ compress: (source) => {
 指定要包含处理的 JSON 文件或目录的 glob 匹配模式
 
 配置示例：
+
 ```ts
-jsonInclude: ['project.private.config.json']
+jsonInclude: ['project.private.config.json'];
 ```
 
 #### `outputDir?: string`
@@ -161,13 +163,14 @@ jsonInclude: ['project.private.config.json']
 - `dest`: 相对于 `outputDir` 的目标目录，匹配的文件将被复制到此目录中
 
 配置示例：
+
 ```ts
 targets: [
   {
     dest: 'assets',
     src: 'assets/**/*.txt',
   },
-]
+];
 ```
 
 #### `rpxToVw?: boolean`
@@ -202,14 +205,14 @@ targets: [
 
 - 运行项目
 
-  构建完成，会生成 ```dist``` 目录，打开微信小程序开发者工具，选择 ```dist``` 目录导入
+  构建完成，会生成 `dist` 目录，打开微信小程序开发者工具，选择 `dist` 目录导入
 
 - [目录结构](https://developers.weixin.qq.com/miniprogram/dev/framework/structure.html)
 
   一个小程序页面由四个文件组成，分别是：
 
   | 文件类型 | 必需 | 作用       |
-  |----------|------|------------|
+  | -------- | ---- | ---------- |
   | js       | 是   | 页面逻辑   |
   | wxml     | 是   | 页面结构   |
   | json     | 否   | 页面配置   |

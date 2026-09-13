@@ -1,7 +1,7 @@
 import type { Plugin } from 'vite';
 
-import fs from 'fs';
-import path from 'path';
+import { promises as fsp } from 'node:fs';
+import path from 'node:path';
 
 import type { CopyPluginOptions } from './plugins/vite-plugin-copy';
 import type { JsonPluginOptions } from './plugins/vite-plugin-json';
@@ -22,15 +22,15 @@ const PLUGIN_NAME = 'vite-plugin-wechat-mp';
 const ROOT_CHECK_PLUGIN_NAME = `${PLUGIN_NAME}-root-check`;
 
 export interface IOptions
-  extends CopyPluginOptions,
+  extends
+    CopyPluginOptions,
     JsonPluginOptions,
     TovwPluginOptions,
     WxJsPluginOptions,
     WxmlPluginOptions,
     WxssPluginOptions {}
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function MpPlugin(options: IOptions = {}): any[] {
+export default function MpPlugin(options: IOptions = {}): Plugin[] {
   const rootDir = options.rootDir ?? 'miniprogram';
 
   return [
@@ -48,9 +48,16 @@ export default function MpPlugin(options: IOptions = {}): any[] {
 function createRootCheckPlugin(rootDir: string): Plugin {
   return {
     async buildStart() {
+      const fullPath = path.resolve(rootDir);
+
       try {
-        const fullPath = path.resolve(rootDir);
-        const files = await fs.promises.readdir(fullPath);
+        const stat = await fsp.stat(fullPath);
+        if (!stat.isDirectory()) {
+          this.warn(`rootDir "${rootDir}" is not a directory.`);
+          return;
+        }
+
+        const files = await fsp.readdir(fullPath);
         if (files.length === 0) {
           this.warn(`rootDir "${rootDir}" is an empty directory.`);
         }
@@ -67,4 +74,4 @@ function createRootCheckPlugin(rootDir: string): Plugin {
   };
 }
 
-MpPlugin.resolvedBy = PLUGIN_NAME;
+(MpPlugin as any).resolvedBy = PLUGIN_NAME;

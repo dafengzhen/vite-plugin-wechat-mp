@@ -1,10 +1,10 @@
 import type { Plugin, UserConfig } from 'vite';
 
-import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
+import crypto from 'node:crypto';
+import { promises as fsp } from 'node:fs';
+import path from 'node:path';
 import { globSync } from 'tinyglobby';
-import { mergeConfig, normalizePath } from 'vite';
+import { normalizePath } from 'vite';
 
 const resolvedBy = 'vite-plugin-wechat-mp-wxml';
 const WXML_PREFIX = 'wxml-';
@@ -12,12 +12,6 @@ const WXML_PREFIX = 'wxml-';
 export interface WxmlPluginOptions {
   /**
    * Custom function to compress HTML or Uint8Array input.
-   *
-   * The function should return a `string`, `Uint8Array`,
-   * and can be asynchronous.
-   *
-   * @param html - The HTML content to be compressed.
-   * @returns The compressed result as a `string`, `Uint8Array`.
    */
   compress?: (html: string | Uint8Array) => Promise<string | Uint8Array> | string | Uint8Array;
 
@@ -36,101 +30,109 @@ export interface WxmlPluginOptions {
   rootDir?: string;
 }
 
-const isUint8Array = (input: string | Uint8Array): input is Uint8Array => {
-  return Object.prototype.toString.call(input) === '[object Uint8Array]';
-};
+const md5_8 = (input: string) => crypto.createHash('md5').update(input).digest('hex').slice(0, 8);
 
-const decodeIfUint8Array = (input: string | Uint8Array): { text: string; wasBinary: boolean } => {
+const isUint8Array = (input: string | Uint8Array): input is Uint8Array =>
+  Object.prototype.toString.call(input) === '[object Uint8Array]';
+
+const decode = (input: string | Uint8Array): { text: string; wasBinary: boolean } => {
   if (isUint8Array(input)) {
     return { text: new TextDecoder('utf-8').decode(input), wasBinary: true };
   }
   return { text: input, wasBinary: false };
 };
 
+const stripScriptBlocks = (source: string, keys: Set<string>): string => {
+  const scriptRegex = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+  return source.replace(scriptRegex, (match) => (keysHasAny(match, keys) ? '' : match));
+};
+
+const keysHasAny = (haystack: string, keys: Set<string>): boolean => {
+  for (const k of keys) {
+    if (haystack.includes(k)) {
+      return true;
+    }
+  }
+  return false;
+};
+
 const processSource = async (
   input: string | Uint8Array,
-  fileKeys: string[],
+  fileKeys: Set<string>,
   compress?: (html: string | Uint8Array) => Promise<string | Uint8Array> | string | Uint8Array,
 ): Promise<string | Uint8Array> => {
-  const { text, wasBinary } = decodeIfUint8Array(input);
+  const { text, wasBinary } = decode(input);
 
   let processed: string | Uint8Array = stripScriptBlocks(text, fileKeys);
 
   if (typeof compress === 'function') {
-    const result = wasBinary ? compress(new TextEncoder().encode(processed)) : compress(processed);
-    if (result instanceof Promise) {
-      processed = await result;
-    } else {
-      processed = result;
-    }
+    const maybe = wasBinary ? compress(new TextEncoder().encode(processed)) : compress(processed);
+    processed = maybe instanceof Promise ? await maybe : maybe;
   }
 
   return processed;
-};
-
-const stripScriptBlocks = (source: string, keys: string[]): string => {
-  const scriptRegex = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
-  return source.replaceAll(scriptRegex, (match) => {
-    return keys.some((key) => match.includes(key)) ? '' : match;
-  });
 };
 
 export default function wxmlPlugin(options: WxmlPluginOptions = {}): Plugin {
   const rootDir = options.rootDir ?? 'miniprogram';
   const outputDir = options.outputDir ?? 'miniprogram';
   const compress = options.compress;
-  const fileKeys: string[] = [];
+
+  const fileKeys = new Set<string>();
 
   return {
-    config(config: UserConfig) {
+    config() {
+      fileKeys.clear();
+
       const files = globSync(`${rootDir}/**/*.wxml`);
 
-      const input = files.reduce(
-        (acc, file) => {
-          const relative = path.relative(rootDir, file).replace(/\.wxml$/, '');
+      const input: Record<string, string> = {};
+      for (const file of files) {
+        const relative = path.relative(rootDir, file).replace(/\.wxml$/, '');
+        const key = `${WXML_PREFIX}${relative}-${md5_8(relative)}`;
 
-          const hash = crypto.createHash('md5').update(file).digest('hex').slice(0, 8);
-          const key = `${WXML_PREFIX}${relative}-${hash}`;
-
-          fileKeys.push(`${key}.js`);
-          acc[key] = path.resolve(file);
-          return acc;
-        },
-        {} as Record<string, string>,
-      );
+        fileKeys.add(`${key}.js`);
+        input[key] = path.resolve(file);
+      }
 
       const pluginConfig: UserConfig = {
         build: {
-          rollupOptions: {
+          rolldownOptions: {
             input,
             plugins: [
               {
-                async generateBundle(_, bundle) {
+                async generateBundle(_opts, bundle) {
                   for (const [fileName, file] of Object.entries(bundle)) {
                     if (file.type === 'asset' && fileName.endsWith('.html')) {
                       const relative = path.relative(rootDir, fileName).replace(/\.html$/, '.wxml');
                       const finalPath = normalizePath(path.join(outputDir, relative));
-                      delete bundle[fileName];
 
                       const source = await processSource(file.source, fileKeys, compress);
-                      bundle[relative] = {
-                        ...file,
+
+                      this.emitFile({
                         fileName: finalPath,
                         source,
-                      };
-                    } else if (file.type === 'chunk' && fileName.endsWith('.js') && fileName.startsWith(WXML_PREFIX)) {
+                        type: 'asset',
+                      });
+
+                      delete bundle[fileName];
+                    } else if (
+                      file.type === 'chunk' &&
+                      fileName.endsWith('.js') &&
+                      fileName.startsWith(WXML_PREFIX)
+                    ) {
                       delete bundle[fileName];
                     }
                   }
                 },
-                name: 'vite-plugin-html-rename',
+                name: 'vite-plugin-wechat-mp-wxml-rename',
               },
             ],
           },
         },
       };
 
-      return mergeConfig(config, pluginConfig);
+      return pluginConfig;
     },
     enforce: 'pre',
     async load(id) {
@@ -139,18 +141,12 @@ export default function wxmlPlugin(options: WxmlPluginOptions = {}): Plugin {
       }
 
       const wxmlPath = id.replace(/\.html$/, '.wxml');
-      const code = await fs.promises.readFile(wxmlPath, 'utf-8');
+      const code = await fsp.readFile(wxmlPath, 'utf-8');
 
       return {
         code,
         map: null,
-        meta: {
-          customData: {
-            now: Date.now(),
-            sourceFile: wxmlPath,
-            type: 'wxml',
-          },
-        },
+        meta: { customData: { now: Date.now(), sourceFile: wxmlPath, type: 'wxml' } },
       };
     },
     name: resolvedBy,
@@ -165,13 +161,7 @@ export default function wxmlPlugin(options: WxmlPluginOptions = {}): Plugin {
       return {
         external: false,
         id: resolvedPath.replace(/\.wxml$/, '.html'),
-        meta: {
-          customData: {
-            fileName: resolvedPath,
-            now: Date.now(),
-            type: 'wxml',
-          },
-        },
+        meta: { customData: { fileName: resolvedPath, now: Date.now(), type: 'wxml' } },
         moduleSideEffects: true,
         resolvedBy,
       };

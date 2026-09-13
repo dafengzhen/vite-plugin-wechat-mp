@@ -1,7 +1,7 @@
 import type { Plugin } from 'vite';
 
-import fs from 'fs';
-import path from 'path';
+import { promises as fsp } from 'node:fs';
+import path from 'node:path';
 import { glob } from 'tinyglobby';
 
 const resolvedBy = 'vite-plugin-wechat-mp-copy';
@@ -15,7 +15,7 @@ export interface CopyPluginOptions {
   debug?: boolean;
 
   /**
-   * Output directory relative to project root.
+   * Output directory relative to Vite build outDir.
    * All matched files will be copied into this directory.
    *
    * @default "miniprogram"
@@ -38,7 +38,7 @@ export interface CopyPluginOptions {
 
 interface CopyTarget {
   /**
-   * Relative destination directory within `rootDir` where matched files should be copied.
+   * Relative destination directory within `outputDir` where matched files should be copied.
    */
   dest: string;
 
@@ -48,20 +48,58 @@ interface CopyTarget {
   src: string;
 }
 
+const isGlobChar = (ch: string) => ch === '*' || ch === '?' || ch === '[' || ch === '{';
+
+const getStaticBase = (pattern: string): string => {
+  // Return the non-glob prefix of a pattern, e.g. "assets/**/*" -> "assets"
+  const normalized = pattern.replaceAll('\\', '/');
+  const idx = [...normalized].findIndex(isGlobChar);
+  const prefix = idx === -1 ? normalized : normalized.slice(0, idx);
+  return prefix.replace(/\/$/, '').split('/')[0] ?? '';
+};
+
+const pLimit = (concurrency: number) => {
+  const queue: Array<() => void> = [];
+  let active = 0;
+
+  const next = () => {
+    active--;
+    const run = queue.shift();
+    run?.();
+  };
+
+  return async <T>(fn: () => Promise<T>): Promise<T> =>
+    await new Promise<T>((resolve, reject) => {
+      const run = () => {
+        active++;
+        fn().then(resolve, reject).finally(next);
+      };
+
+      if (active < concurrency) {
+        run();
+      } else {
+        queue.push(run);
+      }
+    });
+};
+
 export default function copyPlugin(options: CopyPluginOptions = {}): Plugin {
   const rootDir = options.rootDir ?? 'miniprogram';
-  let outputDir = options.outputDir ?? 'miniprogram';
   const debug = options.debug ?? false;
   const targets = options.targets ?? [];
 
   if (!Array.isArray(targets)) {
-    throw new Error(`The "targets" option must be an array of objects with "src" and "dest" properties.`);
+    throw new Error('The "targets" option must be an array of objects with "src" and "dest".');
   }
+
+  // Resolved in configResolved
+  let outBaseDir = 'dist';
+  const outSubDir = options.outputDir ?? 'miniprogram';
 
   return {
     apply: 'build',
     configResolved(config) {
-      outputDir = path.join(config.build?.outDir ?? 'dist', outputDir);
+      outBaseDir = config.build?.outDir ?? 'dist';
     },
     async generateBundle() {
       if (targets.length === 0) {
@@ -69,7 +107,7 @@ export default function copyPlugin(options: CopyPluginOptions = {}): Plugin {
       }
 
       const rootDirAbs = path.resolve(rootDir);
-      const outputDirAbs = path.resolve(outputDir);
+      const outputDirAbs = path.resolve(outBaseDir, outSubDir);
 
       const log = (msg: string) => {
         if (debug) {
@@ -77,48 +115,57 @@ export default function copyPlugin(options: CopyPluginOptions = {}): Plugin {
         }
       };
 
-      log(`OutputDir: ${outputDir}`);
+      // Prevent "too many open files" on large projects
+      const limit = pLimit(16);
 
       for (const target of targets) {
-        const { dest, src } = target;
+        const { dest, src } = target ?? ({} as CopyTarget);
 
         if (!src || !dest) {
-          this.error(`Each target must have both "src" and "dest" properties.`);
+          this.error('Each target must have both "src" and "dest" properties.');
+          continue;
         }
 
+        const srcBase = getStaticBase(src);
+
+        let files: string[];
         try {
-          const files = await glob(src, { cwd: rootDirAbs });
-          log(`Found ${files.length} files for pattern "${src}"`);
-
-          const srcBase = src.split('/')[0];
-          log(`SrcBase: ${srcBase}`);
-
-          let relativePath: string;
-          let destPath: string;
-
-          for (const file of files) {
-            const srcPath = path.join(rootDirAbs, file);
-
-            if (!srcBase || !file.startsWith(srcBase)) {
-              relativePath = file;
-            } else {
-              relativePath = path.relative(srcBase, file);
-            }
-
-            destPath = path.join(outputDirAbs, dest, relativePath);
-
-            log(`Copying: ${file}`);
-            log(`SrcPath: ${srcPath}`);
-            log(`DestPath: ${destPath}`);
-
-            await fs.promises.mkdir(path.dirname(destPath), { recursive: true });
-            await fs.promises.copyFile(srcPath, destPath);
-          }
+          files = await glob(src, { cwd: rootDirAbs, dot: true, onlyFiles: true });
         } catch (error) {
           this.error(
-            `Failed to copy files from "${src}" to "${dest}": ${error instanceof Error ? error.message : String(error)}`,
+            `Failed to resolve glob "${src}" in "${rootDir}": ${error instanceof Error ? error.message : String(error)}`,
           );
+          continue;
         }
+
+        if (files.length === 0) {
+          continue;
+        }
+
+        log(`Copy target: src="${src}" -> dest="${dest}" (files=${files.length})`);
+
+        await Promise.all(
+          files.map((file) =>
+            limit(async () => {
+              const srcPath = path.join(rootDirAbs, file);
+
+              // Keep directory structure; if we can detect the base folder, strip it
+              const relativePath =
+                srcBase && file.startsWith(`${srcBase}/`) ? file.slice(srcBase.length + 1) : file;
+
+              const destPath = path.join(outputDirAbs, dest, relativePath);
+
+              try {
+                await fsp.mkdir(path.dirname(destPath), { recursive: true });
+                await fsp.copyFile(srcPath, destPath);
+              } catch (error) {
+                this.error(
+                  `Failed to copy "${file}" -> "${path.relative(outputDirAbs, destPath)}": ${error instanceof Error ? error.message : String(error)}`,
+                );
+              }
+            }),
+          ),
+        );
       }
     },
     name: resolvedBy,

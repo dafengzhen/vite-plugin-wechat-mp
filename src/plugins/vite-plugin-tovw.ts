@@ -2,21 +2,24 @@ import type { Plugin } from 'vite';
 
 const resolvedBy = 'vite-plugin-wechat-mp-tovw';
 
-const rpxToVw = (css: string, designWidth = 750): string => {
-  return css.replace(/:\s*([^;{}]+)rpx/g, (match) => {
-    return match.replace(/(\d+(\.\d+)?)rpx/g, (_, value) => {
-      const number = parseFloat(value);
-      const vw = (number / designWidth) * 100;
-      return `${vw.toFixed(3)}vw`;
-    });
+const rpxNumber = /(-?\d*\.?\d+)rpx\b/g;
+
+const rpxToVw = (css: string, designWidth: number): string => {
+  // Convert every "<number>rpx" occurrence. This is intentionally simple and fast.
+  return css.replace(rpxNumber, (_m, value: string) => {
+    const number = Number.parseFloat(value);
+    if (!Number.isFinite(number)) {
+      return _m;
+    }
+
+    const vw = (number / designWidth) * 100;
+    return `${vw.toFixed(3)}vw`;
   });
 };
 
 export interface TovwPluginOptions {
   /**
    * The width of the design draft in pixels.
-   * Used as the base for converting `rpx` units to `vw`.
-   * For example, with a design width of 750, 1rpx = (100 / 750) vw.
    *
    * @default 750
    */
@@ -24,7 +27,6 @@ export interface TovwPluginOptions {
 
   /**
    * Whether to enable automatic conversion from `rpx` to `vw`.
-   * If set to true, the plugin will transform `rpx` units into `vw` during the build process.
    *
    * @default false
    */
@@ -35,20 +37,21 @@ export default function vitePluginToVw(options: TovwPluginOptions = {}): Plugin 
   const enable = options.rpxToVw ?? false;
   const designWidth = options.designWidth ?? 750;
 
+  if (designWidth <= 0) {
+    throw new Error('[vite-plugin-wechat-mp-tovw] "designWidth" must be > 0.');
+  }
+
   return {
     name: resolvedBy,
     transform(code, id) {
-      if (enable && id.endsWith('.css')) {
-        if (!code.includes('rpx')) {
-          return null;
-        }
-
-        return {
-          code: rpxToVw(code, designWidth),
-          map: null,
-        };
+      if (!enable || !id.endsWith('.css')) {
+        return null;
       }
-      return null;
+      if (!code.includes('rpx')) {
+        return null;
+      }
+
+      return { code: rpxToVw(code, designWidth), map: null };
     },
   };
 }

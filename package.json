@@ -1,66 +1,67 @@
 {
   "name": "vite-plugin-wechat-mp",
-  "version": "1.1.16",
-  "description": "vite-plugin-wechat-mp 使用 Vite 编译微信小程序",
-  "author": "dafengzhen",
-  "license": "MIT",
-  "type": "module",
-  "main": "dist/vite-plugin-wechat-mp.cjs",
-  "module": "dist/vite-plugin-wechat-mp.js",
-  "types": "dist/vite-plugin-wechat-mp.d.ts",
-  "files": [
-    "dist"
+  "version": "1.1.17",
+  "description": "使用 Vite 编译微信小程序",
+  "keywords": [
+    "mini programs",
+    "mp",
+    "plugin",
+    "vite-plugin",
+    "wechat",
+    "weixin",
+    "wxml",
+    "wxss"
   ],
-  "exports": {
-    ".": {
-      "import": "./dist/vite-plugin-wechat-mp.js",
-      "require": "./dist/vite-plugin-wechat-mp.cjs"
-    }
+  "homepage": "https://github.com/dafengzhen/vite-plugin-wechat-mp#readme",
+  "bugs": {
+    "url": "https://github.com/dafengzhen/vite-plugin-wechat-mp/issues"
   },
-  "devDependencies": {
-    "@eslint/js": "^9.36.0",
-    "@types/node": "^24.6.2",
-    "eslint": "^9.36.0",
-    "eslint-plugin-perfectionist": "^4.15.0",
-    "prettier": "^3.6.2",
-    "rollup-plugin-copy": "^3.5.0",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.45.0",
-    "vite": "^7.1.8"
-  },
-  "peerDependencies": {
-    "vite": ">=6"
-  },
-  "engines": {
-    "node": ">=22"
-  },
-  "scripts": {
-    "dev": "npm build --mode development --watch",
-    "build": "tsc && vite build --mode production",
-    "preview": "vite preview",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "publishConfig": {
-    "access": "public",
-    "tag": "latest",
-    "registry": "https://registry.npmjs.org"
-  },
+  "license": "MIT",
+  "author": "dafengzhen",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dafengzhen/vite-plugin-wechat-mp.git"
   },
-  "keywords": [
-    "vite-plugin",
-    "plugin",
-    "weixin",
-    "wechat",
-    "mini programs",
-    "mp",
-    "wxml",
-    "wxss"
+  "files": [
+    "dist"
   ],
-  "bugs": {
-    "url": "https://github.com/dafengzhen/vite-plugin-wechat-mp/issues"
+  "type": "module",
+  "main": "dist/vite-plugin-wechat-mp.cjs",
+  "module": "dist/vite-plugin-wechat-mp.js",
+  "types": "dist/vite-plugin-wechat-mp.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/vite-plugin-wechat-mp.d.ts",
+      "import": "./dist/vite-plugin-wechat-mp.js",
+      "require": "./dist/vite-plugin-wechat-mp.cjs",
+      "default": "./dist/vite-plugin-wechat-mp.js"
+    }
   },
-  "homepage": "https://github.com/dafengzhen/vite-plugin-wechat-mp#readme"
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org",
+    "tag": "latest"
+  },
+  "scripts": {
+    "dev": "npm build --mode development --watch",
+    "build": "tsc && vite build --mode production && npm run build:types",
+    "build:types": "tsc -p tsconfig.types.json",
+    "preview": "vite preview",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "fmt": "oxfmt",
+    "lint": "oxlint --fix",
+    "lint:fmt": "run-s lint fmt"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "eslint-plugin-perfectionist": "^5.11.0",
+    "npm-run-all2": "^9.0.3",
+    "oxfmt": "^0.67.0",
+    "oxlint": "^1.82.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.0"
+  },
+  "peerDependencies": {
+    "vite": ">=8"
+  }
 }

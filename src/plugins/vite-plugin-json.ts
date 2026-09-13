@@ -1,7 +1,7 @@
 import type { Plugin } from 'vite';
 
-import fs from 'fs';
-import path from 'path';
+import { promises as fsp } from 'node:fs';
+import path from 'node:path';
 import { globSync } from 'tinyglobby';
 import { normalizePath } from 'vite';
 
@@ -38,50 +38,55 @@ export default function jsonPlugin(options: JsonPluginOptions = {}): Plugin {
   const outputDir = options.outputDir ?? 'miniprogram';
   const include = options.jsonInclude;
   const ignore = options.jsonIgnore;
-  const files: string[] = [];
+
+  // Collected once per build
+  const files = new Set<string>();
 
   return {
     buildStart() {
-      const pattern = [`${rootDir}/**/*.json`, 'project.config.json'];
+      files.clear();
+
+      const patterns: string[] = [`${rootDir}/**/*.json`, 'project.config.json'];
 
       if (typeof include === 'string') {
-        pattern.push(include);
+        patterns.push(include);
       } else if (Array.isArray(include)) {
-        pattern.push(...include);
+        patterns.push(...include);
       }
 
-      files.push(
-        ...globSync(pattern, {
-          ignore,
-        }),
-      );
+      const matches = globSync(patterns, { ignore });
+      for (const f of matches) {
+        files.add(f);
+      }
     },
     async generateBundle() {
-      try {
-        await Promise.all(
-          files.map(async (file) => {
-            try {
-              const content = await fs.promises.readFile(file, 'utf-8');
-              const parsed = JSON.parse(content);
-              const minified = JSON.stringify(parsed);
-
-              const isInRoot = file.startsWith(rootDir);
-              const relative = isInRoot ? path.relative(rootDir, file) : file;
-              const finalPath = isInRoot ? normalizePath(path.join(outputDir, relative)) : relative;
-
-              this.emitFile({
-                fileName: finalPath,
-                source: minified,
-                type: 'asset',
-              });
-            } catch (error) {
-              this.warn(`Failed to process ${file}: ${error instanceof Error ? error.message : error}`);
-            }
-          }),
-        );
-      } catch (error) {
-        this.error(`Failed to find JSON files: ${error instanceof Error ? error.message : error}`);
+      const all = [...files];
+      if (all.length === 0) {
+        return;
       }
+
+      await Promise.all(
+        all.map(async (file) => {
+          try {
+            const content = await fsp.readFile(file, 'utf-8');
+
+            // Keep JSON semantics (removes whitespace, normalizes ordering as parsed)
+            const minified = JSON.stringify(JSON.parse(content));
+
+            const isUnderRoot = normalizePath(file).startsWith(normalizePath(rootDir) + '/');
+            const relative = isUnderRoot ? path.posix.relative(rootDir, normalizePath(file)) : file;
+            const finalPath = isUnderRoot
+              ? normalizePath(path.posix.join(outputDir, relative))
+              : relative;
+
+            this.emitFile({ fileName: finalPath, source: minified, type: 'asset' });
+          } catch (error) {
+            this.warn(
+              `Failed to process ${file}: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        }),
+      );
     },
     name: resolvedBy,
   };

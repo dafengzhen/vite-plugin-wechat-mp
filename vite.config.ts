@@ -1,37 +1,22 @@
-import { resolve } from 'path';
-import copy from 'rollup-plugin-copy';
+import { resolve } from 'node:path';
 import { defineConfig, type PluginOption } from 'vite';
 
 export default defineConfig(({ mode }) => {
   const plugins = [] as PluginOption[];
   if (mode === 'production') {
-    plugins.push({
-      ...copy({
-        hook: 'writeBundle',
-        targets: [
-          {
-            dest: 'dist',
-            src: 'src/*.d.ts',
-          },
-          {
-            dest: 'dist/plugins',
-            src: 'src/plugins/*.d.ts',
-          },
-        ],
-      }),
-    });
+    // empty
   }
 
   return {
     build: {
       lib: {
-        entry: resolve(__dirname, 'src/vite-plugin-wechat-mp.ts'),
+        entry: resolve(import.meta.dirname, 'src/vite-plugin-wechat-mp.ts'),
         fileName: '[name]',
         formats: ['es', 'cjs'],
         name: 'VitePluginMp',
       },
-      rollupOptions: {
-        external: ['crypto', 'fs', 'path', 'rollup-plugin-copy', 'tinyglobby', 'vite'],
+      rolldownOptions: {
+        external: ['node:crypto', 'node:fs', 'node:path', 'tinyglobby', 'vite'],
       },
     },
     plugins,
