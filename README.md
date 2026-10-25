@@ -1,11 +1,9 @@
 # vite-plugin-wechat-mp
 
-使用 [Vite build API](https://vite.dev/guide/api-javascript#build) 构建原生微信小程序。要求 Vite 8，Node.js 20.19+ 或 22.12+。
-
 ## 安装和使用
 
 ```bash
-npm install -D vite@^8 vite-plugin-wechat-mp
+npm install -D vite-plugin-wechat-mp
 ```
 
 ```ts
@@ -77,7 +75,7 @@ export default defineConfig({
 上例会将 `src/` 构建到 `dist/mp/`。
 
 | 选项            | 类型                                                              | 默认值                  | 说明                                                                                            |
-| --------------- | ----------------------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------- |
+|-----------------|-------------------------------------------------------------------|-------------------------|-------------------------------------------------------------------------------------------------|
 | `srcDir`        | `string`                                                          | `'miniprogram'`         | 相对于 Vite root 的小程序源目录，也可以使用绝对路径                                             |
 | `outDir`        | `string`                                                          | `'miniprogram'`         | 相对于 `build.outDir` 的小程序输出子目录；设为 `'.'` 可直接输出到构建目录                       |
 | `projectConfig` | `string \| false`                                                 | `'project.config.json'` | 相对于 Vite root 的开发者工具配置；默认文件缺失时跳过，显式指定的文件必须存在，`false` 禁用复制 |
