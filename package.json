@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-wechat-mp",
-  "version": "1.1.17",
+  "version": "1.1.18",
   "description": "使用 Vite 编译微信小程序",
   "keywords": [
     "mini programs",
@@ -26,15 +26,15 @@
     "dist"
   ],
   "type": "module",
-  "main": "dist/vite-plugin-wechat-mp.cjs",
-  "module": "dist/vite-plugin-wechat-mp.js",
-  "types": "dist/vite-plugin-wechat-mp.d.ts",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/vite-plugin-wechat-mp.d.ts",
-      "import": "./dist/vite-plugin-wechat-mp.js",
-      "require": "./dist/vite-plugin-wechat-mp.cjs",
-      "default": "./dist/vite-plugin-wechat-mp.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
     }
   },
   "publishConfig": {
@@ -43,14 +43,14 @@
     "tag": "latest"
   },
   "scripts": {
-    "dev": "npm build --mode development --watch",
-    "build": "tsc && vite build --mode production && npm run build:types",
+    "dev": "vite build --watch",
+    "build": "tsc && vite build && npm run build:types",
     "build:types": "tsc -p tsconfig.types.json",
     "preview": "vite preview",
-    "test": "echo \"Error: no test specified\" && exit 1",
     "fmt": "oxfmt",
     "lint": "oxlint --fix",
-    "lint:fmt": "run-s lint fmt"
+    "lint:fmt": "run-s lint fmt",
+    "build:example": "npm run build && vite build examples/miniprogram"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
@@ -63,5 +63,8 @@
   },
   "peerDependencies": {
     "vite": ">=8"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
   }
 }

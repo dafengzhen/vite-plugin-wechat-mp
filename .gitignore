@@ -145,3 +145,6 @@ vite.config.ts.timestamp-*
 # custom
 /.idea
 /temp
+
+# Keep the example page named logs.
+!/examples/miniprogram/miniprogram/pages/logs/

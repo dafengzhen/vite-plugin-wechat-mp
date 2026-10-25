@@ -10,8 +10,8 @@
   "author": "dafengzhen",
   "license": "",
   "devDependencies": {
-    "vite-plugin-wechat-mp": "^1.1.17",
     "miniprogram-api-typings": "^2.8.3-1",
     "vite": "^8"
-  }
+  },
+  "type": "module"
 }

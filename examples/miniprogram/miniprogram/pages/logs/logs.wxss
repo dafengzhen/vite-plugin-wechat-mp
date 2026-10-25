@@ -1,0 +1,2 @@
+.logs { padding: 32rpx; }
+.log { margin-bottom: 16rpx; }

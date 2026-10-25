@@ -1,0 +1,3 @@
+<view class="logs">
+  <view wx:for="{{logs}}" wx:key="index" class="log">{{index + 1}}. {{item}}</view>
+</view>

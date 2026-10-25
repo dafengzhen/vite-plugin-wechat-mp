@@ -1,0 +1,78 @@
+import type { Plugin, ResolvedConfig } from 'vite';
+
+import { rm } from 'node:fs/promises';
+import path from 'node:path';
+
+import type { WechatMpOptions } from './options';
+
+import { buildMiniProgram } from './build';
+import { isInside, resolveDirectories } from './files';
+
+export type { WechatMpOptions } from './options';
+
+const ENTRY = '\0vite-plugin-wechat-mp:entry';
+
+export default function wechatMp(options: WechatMpOptions = {}): Plugin {
+  let config: ResolvedConfig;
+  let emitted = new Set<string>();
+  const previous = new Map<string, Set<string>>();
+
+  return {
+    apply: 'build',
+    async buildStart() {
+      const result = await buildMiniProgram(config, options, (file) => this.addWatchFile(file));
+      emitted = new Set(result.keys());
+      for (const [fileName, source] of result) {
+        this.emitFile({ fileName, source, type: 'asset' });
+      }
+    },
+    config() {
+      return {
+        build: {
+          modulePreload: false,
+          // The outer build only writes assets produced by the inner builds.
+          rolldownOptions: { input: ENTRY },
+        },
+        publicDir: false,
+      };
+    },
+    configResolved(resolved) {
+      config = resolved;
+      resolveDirectories(config.root, config.build.outDir, options);
+      const outputs = config.build.rolldownOptions.output;
+      for (const output of Array.isArray(outputs) ? outputs : [outputs]) {
+        if (output?.dir) {
+          resolveDirectories(config.root, output.dir, options);
+        }
+      }
+      if (config.build.lib || config.build.ssr) {
+        throw new Error('[wechat-mp] Library and SSR builds are not supported.');
+      }
+    },
+    generateBundle(_output, bundle) {
+      for (const [fileName, file] of Object.entries(bundle)) {
+        if (file.type === 'chunk' && file.facadeModuleId === ENTRY) {
+          delete bundle[fileName];
+          delete bundle[`${fileName}.map`];
+        }
+      }
+    },
+    load(id) {
+      return id === ENTRY ? 'export {};' : null;
+    },
+    name: 'vite-plugin-wechat-mp',
+    resolveId(id) {
+      return id === ENTRY ? ENTRY : null;
+    },
+    async writeBundle(output) {
+      const directory = path.resolve(config.root, output.dir ?? config.build.outDir);
+      for (const filename of previous.get(directory) ?? []) {
+        const target = path.resolve(directory, filename);
+        if (!emitted.has(filename) && isInside(directory, target)) {
+          await rm(target, { force: true });
+        }
+      }
+      previous.set(directory, emitted);
+    },
+  };
+}
