@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-wechat-mp",
-  "version": "1.1.21",
+  "version": "1.1.22",
   "description": "使用 Vite 编译微信小程序",
   "keywords": [
     "mini programs",
@@ -51,6 +51,9 @@
     "lint": "oxlint --fix",
     "lint:fmt": "run-s lint fmt",
     "build:example": "npm run build && vite build examples/miniprogram"
+  },
+  "dependencies": {
+    "postcss": "^8.5.31"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

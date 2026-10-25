@@ -7,6 +7,7 @@ import { build, normalizePath } from 'vite';
 import type { WechatMpOptions } from './options';
 
 import { collectFiles, DECLARATION_RE, resolveDirectories, SCRIPT_RE } from './files';
+import { rpxToVw } from './plugins/rpx-to-vw';
 
 type BuildFiles = Map<string, string | Uint8Array>;
 const STYLE_SUFFIX = '.wechat-mp.css';
@@ -139,6 +140,7 @@ export async function buildMiniProgram(
       },
       plugins: [
         ...(options.plugins ?? []),
+        options.rpxToVw && rpxToVw(),
         {
           enforce: 'pre',
           name: 'wechat-mp:script-assets',

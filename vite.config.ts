@@ -9,7 +9,7 @@ export default defineConfig({
       formats: ['es', 'cjs'],
     },
     rolldownOptions: {
-      external: [/^node:/, 'vite'],
+      external: [/^node:/, 'postcss', 'vite'],
     },
     target: 'node20',
   },

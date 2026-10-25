@@ -7,6 +7,8 @@ export interface WechatMpOptions {
   plugins?: PluginOption[];
   /** Developer Tools project config, relative to Vite root. Set false to omit it. @default 'project.config.json' */
   projectConfig?: false | string;
+  /** Convert WXSS/CSS rpx units to vw (750rpx = 100vw). @default false */
+  rpxToVw?: boolean;
   /** Source directory, relative to Vite root. @default 'miniprogram' */
   srcDir?: string;
   /** Optional WXML transform. WXML is otherwise copied verbatim. */
