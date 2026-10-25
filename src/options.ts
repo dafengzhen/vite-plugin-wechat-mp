@@ -7,6 +7,10 @@ export interface WechatMpOptions {
   plugins?: PluginOption[];
   /** Developer Tools project config, relative to Vite root. Set false to omit it. @default 'project.config.json' */
   projectConfig?: false | string;
+  /** Copy both project configs only when the destination is missing. Disables build.emptyOutDir. @default false */
+  projectConfigCopyOnce?: boolean;
+  /** Copy private Developer Tools config verbatim. true uses 'project.private.config.json'; a path is relative to Vite root. @default false */
+  projectPrivateConfig?: boolean | string;
   /** Convert WXSS/CSS rpx units to vw (750rpx = 100vw). @default false */
   rpxToVw?: boolean;
   /** Source directory, relative to Vite root. @default 'miniprogram' */

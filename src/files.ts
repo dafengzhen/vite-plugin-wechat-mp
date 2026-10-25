@@ -36,6 +36,17 @@ export async function collectFiles(
   return files;
 }
 
+export async function fileExists(filename: string): Promise<boolean> {
+  try {
+    return (await stat(filename)).isFile();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return false;
+    }
+    throw error;
+  }
+}
+
 export function isInside(parent: string, child: string): boolean {
   const relative = path.relative(parent, child);
   return (

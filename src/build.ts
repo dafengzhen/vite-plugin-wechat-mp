@@ -16,6 +16,7 @@ export async function buildMiniProgram(
   config: ResolvedConfig,
   options: WechatMpOptions,
   watch: (file: string) => void,
+  shouldCopyProjectConfig: (filename: string) => Promise<boolean> = async () => true,
 ): Promise<BuildFiles> {
   const { destination, source } = resolveDirectories(config.root, config.build.outDir, options);
   const files = await collectFiles(source, watch);
@@ -211,7 +212,7 @@ export async function buildMiniProgram(
   }
 
   const projectConfig = options.projectConfig ?? 'project.config.json';
-  if (projectConfig !== false) {
+  if (projectConfig !== false && (await shouldCopyProjectConfig('project.config.json'))) {
     const filename = path.resolve(config.root, projectConfig);
     watch(filename);
     try {
@@ -231,6 +232,18 @@ export async function buildMiniProgram(
         throw error;
       }
     }
+  }
+  const projectPrivateConfig = options.projectPrivateConfig ?? false;
+  if (
+    projectPrivateConfig !== false &&
+    (await shouldCopyProjectConfig('project.private.config.json'))
+  ) {
+    const filename = path.resolve(
+      config.root,
+      projectPrivateConfig === true ? 'project.private.config.json' : projectPrivateConfig,
+    );
+    watch(filename);
+    output.set('project.private.config.json', await readFile(filename));
   }
   return output;
 }
