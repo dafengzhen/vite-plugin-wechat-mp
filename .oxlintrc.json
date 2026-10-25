@@ -13,7 +13,6 @@
     "jsx-a11y",
     "node",
     "promise",
-    "jest",
     "vitest",
     "vue"
   ],
