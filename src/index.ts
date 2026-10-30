@@ -17,6 +17,7 @@ export default function wechatMp(options: WechatMpOptions = {}): Plugin {
   let config: ResolvedConfig;
   let emitted = new Set<string>();
   let outputDirectories: string[];
+  let projectConfigFiles: Set<string>;
   const previous = new Map<string, Set<string>>();
 
   async function shouldCopyProjectConfig(filename: string): Promise<boolean> {
@@ -63,7 +64,10 @@ export default function wechatMp(options: WechatMpOptions = {}): Plugin {
         config.build.emptyOutDir = false;
         config.environments.client.build.emptyOutDir = false;
       }
-      resolveDirectories(config.root, config.build.outDir, options);
+      const { destination } = resolveDirectories(config.root, config.build.outDir, options);
+      projectConfigFiles = new Set(
+        [...PROJECT_CONFIG_FILES].map((filename) => path.posix.join(destination, filename)),
+      );
       const outputs = config.build.rolldownOptions.output;
       outputDirectories = [
         ...new Set(
@@ -91,7 +95,7 @@ export default function wechatMp(options: WechatMpOptions = {}): Plugin {
         if (
           options.projectConfigCopyOnce &&
           isWrite &&
-          PROJECT_CONFIG_FILES.has(fileName) &&
+          projectConfigFiles.has(fileName) &&
           (await fileExists(path.join(directory, fileName)))
         ) {
           delete bundle[fileName];
@@ -111,7 +115,7 @@ export default function wechatMp(options: WechatMpOptions = {}): Plugin {
         const target = path.resolve(directory, filename);
         if (
           !emitted.has(filename) &&
-          !(options.projectConfigCopyOnce && PROJECT_CONFIG_FILES.has(filename)) &&
+          !(options.projectConfigCopyOnce && projectConfigFiles.has(filename)) &&
           isInside(directory, target)
         ) {
           await rm(target, { force: true });

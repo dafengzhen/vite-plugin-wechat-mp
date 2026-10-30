@@ -212,7 +212,10 @@ export async function buildMiniProgram(
   }
 
   const projectConfig = options.projectConfig ?? 'project.config.json';
-  if (projectConfig !== false && (await shouldCopyProjectConfig('project.config.json'))) {
+  if (
+    projectConfig !== false &&
+    (await shouldCopyProjectConfig(path.posix.join(destination, 'project.config.json')))
+  ) {
     const filename = path.resolve(config.root, projectConfig);
     watch(filename);
     try {
@@ -221,9 +224,9 @@ export async function buildMiniProgram(
         // noinspection ExceptionCaughtLocallyJS
         throw new Error(`[wechat-mp] Expected an object in ${filename}`);
       }
-      project.miniprogramRoot = `${destination.replace(/\/$/, '')}/`;
+      project.miniprogramRoot = './';
       delete project.srcMiniprogramRoot;
-      output.set('project.config.json', JSON.stringify(project));
+      emit('project.config.json', JSON.stringify(project));
     } catch (error) {
       if (
         (error as NodeJS.ErrnoException).code !== 'ENOENT' ||
@@ -236,14 +239,14 @@ export async function buildMiniProgram(
   const projectPrivateConfig = options.projectPrivateConfig ?? false;
   if (
     projectPrivateConfig !== false &&
-    (await shouldCopyProjectConfig('project.private.config.json'))
+    (await shouldCopyProjectConfig(path.posix.join(destination, 'project.private.config.json')))
   ) {
     const filename = path.resolve(
       config.root,
       projectPrivateConfig === true ? 'project.private.config.json' : projectPrivateConfig,
     );
     watch(filename);
-    output.set('project.private.config.json', await readFile(filename));
+    emit('project.private.config.json', await readFile(filename));
   }
   return output;
 }
